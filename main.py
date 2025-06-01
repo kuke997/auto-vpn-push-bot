@@ -37,7 +37,8 @@ def send_to_telegram(text):
 if __name__ == "__main__":
     nodes = fetch_free_nodes()
     if nodes:
-        message = "*🎯 免费 VPN 节点更新（每日）*
+        message = """*🎯 免费 VPN 节点更新（每日）*
+以下是今日可用节点："""
 
 " + format_nodes(nodes)
         send_to_telegram(message)
