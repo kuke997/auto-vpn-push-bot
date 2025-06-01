@@ -7,7 +7,6 @@ CHANNEL_ID = os.getenv('CHANNEL_ID')
 
 # 示例：公共订阅链接（请替换成你自己找到的真实订阅）
 SUBSCRIBE_URL = "https://mirror.ghproxy.com/https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub/clash.yaml"
-"
 
 def get_nodes():
     try:
