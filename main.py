@@ -6,7 +6,7 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 CHANNEL_ID = os.getenv('CHANNEL_ID')
 
 # 示例 Clash 节点订阅链接（YAML 格式）
-SUBSCRIBE_URL = "https://github.com/aiboboxx/clashfree.git"
+SUBSCRIBE_URL = "https://raw.githubusercontent.com/ermaozi01/free_clash_vpn/main/clash.yml"
 
 def get_nodes():
     try:
