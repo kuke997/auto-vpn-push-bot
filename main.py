@@ -6,7 +6,7 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 CHANNEL_ID = os.getenv('CHANNEL_ID')
 
 # 示例：公共订阅链接（请替换成你自己找到的真实订阅）
-SUBSCRIBE_URL = "https://raw.githubusercontent.com/ermaozi01/free_clash_vpn/main/subscribe/clash.txt"
+SUBSCRIBE_URL = "https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub"
 
 def get_nodes():
     try:
