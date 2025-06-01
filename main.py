@@ -11,6 +11,9 @@ def get_nodes_from_yaml(yaml_text):
     从 Clash 配置的 YAML 文本中提取节点名称和类型，返回列表
     """
     try:
+        # 打印调试信息，看看拿到的前几百字符是什么内容
+        print("开始解析 YAML，内容预览：", yaml_text[:300])
+        
         data = yaml.safe_load(yaml_text)
         proxies = data.get("proxies", [])
         nodes = []
@@ -25,8 +28,15 @@ def get_nodes_from_yaml(yaml_text):
 
 def get_nodes():
     try:
-        resp = requests.get(SUBSCRIBE_URL, timeout=10)
+        headers = {
+            # 加上User-Agent防止被服务器拒绝
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+        resp = requests.get(SUBSCRIBE_URL, headers=headers, timeout=10)
         resp.raise_for_status()
+        # 输出响应头和内容类型，调试用
+        print("响应头信息：", resp.headers)
+        print("内容类型：", resp.headers.get("Content-Type"))
         return get_nodes_from_yaml(resp.text)
     except Exception as e:
         print("抓取节点出错:", e)
