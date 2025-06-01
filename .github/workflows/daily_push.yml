@@ -1,28 +1,30 @@
-name: Daily VPN Node Push
+name: Auto VPN Node Push
 
 on:
   schedule:
-    - cron: "0 1 * * *"  # 每天 UTC+0 时间 01:00（北京时间 09:00）运行
-  workflow_dispatch:      # 允许手动运行
+    # 每天凌晨1点触发，CRON表达式为 UTC 时间
+    - cron: "0 1 * * *"
+  workflow_dispatch:  # 支持手动触发
+
 jobs:
-  run-script:
+  push_nodes:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.x'
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install requests pyyaml
 
       - name: Run main.py
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
-        run: |
-          python main.py
+          SUBSCRIBE_URL: ${{ secrets.SUBSCRIBE_URL }}
+        run: python main.py
