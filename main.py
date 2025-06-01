@@ -1,32 +1,38 @@
 import os
 import requests
-import base64
+import yaml
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 CHANNEL_ID = os.getenv('CHANNEL_ID')
 
-# 示例：公共订阅链接（请替换成你自己找到的真实订阅）
-SUBSCRIBE_URL = "https://mirror.ghproxy.com/https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub/clash.yaml"
+# 示例 Clash 节点订阅链接（YAML 格式）
+SUBSCRIBE_URL = "https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub/clash.yaml"
 
 def get_nodes():
     try:
-        resp = requests.get(SUBSCRIBE_URL)
+        resp = requests.get(SUBSCRIBE_URL, timeout=10)
         resp.raise_for_status()
-        data = resp.text.strip()
-        
-        # 有些订阅内容是 base64 编码，需要先解码
-        decoded = base64.b64decode(data).decode('utf-8')
-        
-        # 按行分割，过滤出有效节点
-        nodes = [line for line in decoded.splitlines() if line.startswith(("ss://", "vmess://", "clash://"))]
-        
-        return nodes[:10]  # 取前10条
+
+        data = yaml.safe_load(resp.text)
+        proxies = data.get("proxies", [])
+
+        nodes = []
+        for proxy in proxies:
+            name = proxy.get("name", "无名节点")
+            proxy_type = proxy.get("type")
+            server = proxy.get("server")
+
+            if proxy_type in ["ss", "vmess", "trojan"]:
+                node = f"{proxy_type.upper()} | {name} | {server}"
+                nodes.append(node)
+
+        return nodes[:10]  # 最多10条
     except Exception as e:
         print("抓取节点出错:", e)
         return []
 
 def format_nodes(nodes):
-    return "\n".join(nodes)
+    return "\n".join([f"- `{node}`" for node in nodes])
 
 def send_message(bot_token, channel_id, message):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -37,9 +43,9 @@ def send_message(bot_token, channel_id, message):
     }
     response = requests.post(url, json=payload)
     if not response.ok:
-        print("发送消息失败:", response.text)
+        print("发送失败:", response.text)
     else:
-        print("消息发送成功")
+        print("发送成功")
 
 def main():
     nodes = get_nodes()
