@@ -2,18 +2,16 @@ import os
 import requests
 import yaml
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
-SUBSCRIBE_URL = os.getenv("SUBSCRIBE_URL")
+# 获取并清理环境变量
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+CHANNEL_ID = os.getenv("CHANNEL_ID", "").strip()
+SUBSCRIBE_URL = os.getenv("SUBSCRIBE_URL", "").strip()
 
 def get_nodes_from_yaml(yaml_text):
     """
-    从 Clash 配置的 YAML 文本中提取节点名称和类型，返回列表
+    从 Clash 配置的 YAML 文本中提取节点名称和类型，返回节点列表
     """
     try:
-        # 打印调试信息，看看拿到的前几百字符是什么内容
-        print("开始解析 YAML，内容预览：", yaml_text[:300])
-        
         data = yaml.safe_load(yaml_text)
         proxies = data.get("proxies", [])
         nodes = []
@@ -28,15 +26,12 @@ def get_nodes_from_yaml(yaml_text):
 
 def get_nodes():
     try:
-        headers = {
-            # 加上User-Agent防止被服务器拒绝
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
-        resp = requests.get(SUBSCRIBE_URL, headers=headers, timeout=10)
-        resp.raise_for_status()
-        # 输出响应头和内容类型，调试用
+        print("使用的订阅地址：", repr(SUBSCRIBE_URL))
+        resp = requests.get(SUBSCRIBE_URL, timeout=10)
         print("响应头信息：", resp.headers)
-        print("内容类型：", resp.headers.get("Content-Type"))
+        print("内容类型：", resp.headers.get("Content-Type", "未知"))
+        print("开始解析 YAML，内容预览：", resp.text[:300])  # 打印前300字符内容
+        resp.raise_for_status()
         return get_nodes_from_yaml(resp.text)
     except Exception as e:
         print("抓取节点出错:", e)
@@ -49,11 +44,14 @@ def send_message(bot_token, channel_id, message):
         "text": message,
         "parse_mode": "Markdown"
     }
-    resp = requests.post(url, json=payload)
-    if not resp.ok:
-        print("发送消息失败:", resp.text)
-    else:
-        print("消息发送成功")
+    try:
+        resp = requests.post(url, json=payload)
+        if resp.ok:
+            print("消息发送成功")
+        else:
+            print("发送消息失败:", resp.text)
+    except Exception as e:
+        print("发送消息异常:", e)
 
 def main():
     if not (BOT_TOKEN and CHANNEL_ID and SUBSCRIBE_URL):
