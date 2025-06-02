@@ -2,8 +2,8 @@ name: Auto VPN Node Push
 
 on:
   schedule:
-    - cron: "*/1 * * * *"   # 每分钟触发一次，方便测试
-  workflow_dispatch:
+    - cron: "0 * * * *"  # 每小时自动触发一次（UTC时间整点）
+  workflow_dispatch:      # 手动触发功能保留
 
 jobs:
   push_nodes:
