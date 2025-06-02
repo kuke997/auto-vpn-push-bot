@@ -4,12 +4,9 @@ import yaml
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
-SUBSCRIBE_URL = os.getenv("SUBSCRIBE_URL")
+SUBSCRIBE_URL = os.getenv("SUBSCRIBE_URL")  # 多个地址用逗号分隔
 
 def get_nodes_from_yaml(yaml_text):
-    """
-    解析 Clash YAML 配置，提取节点详细信息，返回字符串列表
-    """
     try:
         data = yaml.safe_load(yaml_text)
         proxies = data.get("proxies", [])
@@ -47,7 +44,6 @@ def get_nodes_from_yaml(yaml_text):
                     f"  密码: {password}"
                 )
             else:
-                # 其他类型，简单输出
                 nodes.append(f"- {ptype} | {name}\n  服务器: {server}:{port}")
         return nodes
     except Exception as e:
@@ -55,19 +51,20 @@ def get_nodes_from_yaml(yaml_text):
         return []
 
 def get_nodes():
-    try:
-        print(f"使用的订阅地址：'{SUBSCRIBE_URL}'")
-        resp = requests.get(SUBSCRIBE_URL, timeout=15)
-        resp.raise_for_status()
-        print("响应头信息：", resp.headers)
-        content_type = resp.headers.get("Content-Type", "")
-        print("内容类型：", content_type)
-        preview = resp.text[:300].replace("\n", "\\n")
-        print("开始解析 YAML，内容预览：", preview)
-        return get_nodes_from_yaml(resp.text)
-    except Exception as e:
-        print("抓取节点出错:", e)
-        return []
+    all_nodes = []
+    urls = [url.strip() for url in SUBSCRIBE_URL.split(",") if url.strip()]
+    for url in urls:
+        print(f"拉取订阅：{url}")
+        try:
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            preview = resp.text[:200].replace("\n", "\\n")
+            print("内容预览:", preview)
+            nodes = get_nodes_from_yaml(resp.text)
+            all_nodes.extend(nodes)
+        except Exception as e:
+            print(f"订阅抓取失败: {url}\n错误: {e}")
+    return all_nodes
 
 def send_message(bot_token, channel_id, message):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -79,11 +76,11 @@ def send_message(bot_token, channel_id, message):
     try:
         resp = requests.post(url, json=payload)
         if resp.ok:
-            print("消息发送成功")
+            print("✅ 消息发送成功")
         else:
-            print("发送消息失败:", resp.text)
+            print("❌ 消息发送失败:", resp.text)
     except Exception as e:
-        print("发送消息异常:", e)
+        print("❌ 消息异常:", e)
 
 def main():
     if not (BOT_TOKEN and CHANNEL_ID and SUBSCRIBE_URL):
@@ -92,14 +89,13 @@ def main():
 
     nodes = get_nodes()
     if not nodes:
-        print("没有获取到有效节点")
+        print("没有抓取到任何节点")
         return
 
-    # 只取前10个节点，避免消息过长
-    nodes_message = "\n\n".join(nodes[:10])
+    nodes_message = "\n\n".join(nodes[:10])  # 限制最多推送10条
     message = (
-        "*🎯 免费 VPN 节点更新（每日）*\n"
-        "以下是今日可用节点（仅展示部分）：\n\n"
+        "*🎯 免费 VPN 节点更新（自动）*\n"
+        "以下是从多个订阅中整理的节点（仅展示前 10 个）：\n\n"
         f"{nodes_message}"
     )
     send_message(BOT_TOKEN, CHANNEL_ID, message)
