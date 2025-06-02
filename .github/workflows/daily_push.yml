@@ -2,8 +2,10 @@ name: Auto VPN Node Push
 
 on:
   schedule:
-    # 每天凌晨1点触发，CRON表达式为 UTC 时间
-    - cron: "0 1 * * *"
+    # 每天北京时间 10:40 = UTC 02:40
+    - cron: "40 2 * * *"
+    # 每天北京时间 21:00 = UTC 13:00
+    - cron: "0 13 * * *"
   workflow_dispatch:  # 支持手动触发
 
 jobs:
