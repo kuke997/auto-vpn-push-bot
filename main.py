@@ -1,87 +1,111 @@
+# main.py
 import requests
 from bs4 import BeautifulSoup
+import yaml
 import re
 import time
-import yaml
+import os
 from telegram import Bot
 
 # Telegram 配置
-TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
-TELEGRAM_CHAT_ID = 'YOUR_CHANNEL_OR_USER_ID'
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # 推荐在 GitHub Secrets 设置
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# 伪装请求头
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0 Safari/537.36'
+# 订阅链接关键词匹配
+CLASH_KEYWORDS = [".yaml", ".yml"]
+VMESS_KEYWORDS = ["vmess://"]
+SSR_KEYWORDS = ["ssr://"]
+SS_KEYWORDS = ["ss://"]
+
+headers = {
+    'User-Agent': 'Mozilla/5.0'
 }
 
-def fetch_article_links():
-    print("🌐 开始爬取 freefq.com 最新页面...")
-    url = 'https://freefq.com/free-ssr/'
-    resp = requests.get(url, headers=HEADERS, timeout=10)
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    articles = soup.select('article h2 a')
-    article_links = [a['href'] for a in articles if '/free-' in a['href']]
-    print(f"✅ 获取到 {len(article_links)} 篇文章链接")
-    return article_links
+def fetch_freefq_links():
+    url = "https://freefq.com/free-ssr/"
+    print(f"🌐 正在爬取: {url}")
+    resp = requests.get(url, headers=headers, timeout=10)
+    soup = BeautifulSoup(resp.text, "html.parser")
 
-def extract_subscribe_links(article_url):
-    print(f"➡️ 解析文章: {article_url}")
+    links = []
+    for article in soup.select(".post-inner h2 a"):
+        href = article.get("href")
+        if href:
+            links.append(href)
+
+    print(f"✅ 找到 {len(links)} 篇文章链接")
+    return links
+
+def extract_subscribe_links(post_url):
+    print(f"➡️ 正在解析文章: {post_url}")
     try:
-        resp = requests.get(article_url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        links = re.findall(r'(https?://[^\s<>"\'\)]+)', soup.text)
-        clash_links = [l for l in links if 'clash' in l.lower() or 'sub' in l.lower() or 'v2ray' in l.lower()]
-        return clash_links
+        resp = requests.get(post_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        text = soup.get_text()
+
+        # 通过正则匹配 clash/vmess/ssr/ss 链接
+        found = re.findall(r'(https?://[^\s"\<>]+)', text)
+        filtered = [link for link in found if any(k in link for k in CLASH_KEYWORDS + VMESS_KEYWORDS + SSR_KEYWORDS + SS_KEYWORDS)]
+        return list(set(filtered))
     except Exception as e:
-        print(f"⚠️ 文章解析失败: {e}")
+        print(f"⚠️ 获取失败: {post_url} 错误: {e}")
         return []
 
-def validate_link(url):
+def validate_clash_link(url):
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
-        content_type = resp.headers.get('Content-Type', '')
-        if 'yaml' in content_type or 'text' in content_type or 'json' in content_type:
+        resp = requests.get(url, timeout=8)
+        if resp.status_code == 200 and ("proxies" in resp.text or "proxy-groups" in resp.text):
             return True
-    except Exception:
+    except:
         pass
     return False
 
-def push_to_telegram(valid_links):
-    if not valid_links:
-        print("❌ 无有效链接，跳过推送")
+def send_to_telegram(message):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("❌ 未配置 Telegram Token 或 Chat ID")
         return
-
-    bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-    msg = "🌐 免费 Clash / V2Ray 节点更新：\n\n"
-    for idx, link in enumerate(valid_links[:10], start=1):
-        msg += f"{idx}. [点击使用]({link})\n"
-
-    msg += "\n📅 更新时间: " + time.strftime('%Y-%m-%d %H:%M:%S')
-    print("📤 推送到 Telegram...")
-    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg, parse_mode="Markdown", disable_web_page_preview=True)
+    try:
+        bot = Bot(token=TELEGRAM_BOT_TOKEN)
+        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message, parse_mode='HTML')
+        print("📤 成功推送到 Telegram")
+    except Exception as e:
+        print(f"❌ 推送失败: {e}")
 
 def main():
-    article_links = fetch_article_links()
+    print("\n=======================")
+    print("🚀 FreeFQ VPN 爬虫启动")
+    print("=======================")
+    articles = fetch_freefq_links()
     all_links = []
-    for link in article_links[:3]:  # 只处理前3篇
-        all_links += extract_subscribe_links(link)
-        time.sleep(1)
 
-    print(f"🔍 共提取到 {len(all_links)} 条链接，开始验证...")
+    for url in articles[:5]:  # 只取前5篇
+        links = extract_subscribe_links(url)
+        all_links.extend(links)
+        time.sleep(2)
+
+    all_links = list(set(all_links))
+    print(f"🔍 共提取到 {len(all_links)} 条原始订阅链接")
 
     valid_links = []
     for link in all_links:
-        if validate_link(link):
-            valid_links.append(link)
+        if any(k in link for k in CLASH_KEYWORDS):
+            if validate_clash_link(link):
+                valid_links.append(link)
+                print(f"✅ 有效: {link}")
+            else:
+                print(f"❌ 无效: {link}")
 
-    print(f"✔️ 验证完成！共 {len(valid_links)} 条有效链接")
+    if valid_links:
+        msg = "<b>🎯 免费 Clash 节点推送</b>\n"
+        for i, link in enumerate(valid_links, 1):
+            msg += f"{i}. <code>{link}</code>\n"
+        send_to_telegram(msg)
+    else:
+        print("❌ 没有可用链接，跳过推送")
+
     with open("valid_links.txt", "w") as f:
-        for l in valid_links:
-            f.write(l + "\n")
-
-    push_to_telegram(valid_links)
-    print("✅ 任务完成！")
+        for link in valid_links:
+            f.write(link + "\n")
 
 if __name__ == "__main__":
     main()
